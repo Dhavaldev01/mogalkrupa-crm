@@ -1,0 +1,39 @@
+@import './assets/css/font.css';
+@import './assets/css/orderItemDatePicker.css';
+
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+.rsw_2f {
+    display: none !important;
+    position: static !important;
+    /* Removes absolute positioning */
+}
+
+.rsw_3G {
+    display: block !important;
+    position: static !important;
+    /* Ensures it stays in the normal document flow */
+}
+
+.no-scroll {
+    overscroll-behavior-y: none;
+    scrollbar-width: none;
+}
+
+.no-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+

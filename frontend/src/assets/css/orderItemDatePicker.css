@@ -1,0 +1,48 @@
+.order-datepicker-container {
+    .order-datepicker{
+        .rdp-months{
+            .rdp-nav{
+                @apply border-b border-secondary/10;
+            }
+            .rdp-month{
+                @apply gap-2;
+                .rdp-weekdays{
+                    .rdp-weekday{
+                        @apply font-bold text-secondary text-xs uppercase;
+                    }
+                }
+                .rdp-weeks{
+                    .rdp-day_button{
+                        @apply text-xs font-medium rounded-none cursor-pointer;
+                    }
+                    .rdp-day{
+                        @apply rounded-full;
+                    }
+                    .rdp-range_start{
+                        @apply rounded-r-none;
+                        button{
+                            @apply rounded-r-none font-bold;
+                        }
+                    }
+                    .rdp-range_end{
+                        @apply rounded-l-none;
+                        button{
+                            @apply rounded-l-none font-bold;
+                        }
+                    }
+                    .rdp-range_middle{
+                        @apply rounded-none;
+                        button{
+                            @apply rounded-none;
+                        }
+                    }
+                    .rdp-outside{
+                        button{
+                            @apply text-secondary/50;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
