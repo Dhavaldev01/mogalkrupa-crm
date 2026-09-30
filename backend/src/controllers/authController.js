@@ -14,7 +14,10 @@ const signToken = (id) => {
 const getCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  // Production requests are proxied through the Vercel frontend, so the
+  // browser sees the auth cookie as first-party. Lax is more reliable on Safari.
+  sameSite: "lax",
+  path: "/",
 });
 
 const createSendToken = (user, statusCode, res, message) => {
