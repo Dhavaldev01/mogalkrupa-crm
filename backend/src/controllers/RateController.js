@@ -21,10 +21,10 @@ const createRate = asyncHandler(async (req, res) => {
     throw new CustomError("Site and rate are required", 400);
   }
 
-  const existingRate = await Rate.findOne({ site });
-  if (existingRate) {
-    throw new CustomError(`Site ${site} already exists`, 409);
-  }
+  // const existingRate = await Rate.findOne({ site });
+  // if (existingRate) {
+  //   throw new CustomError(`Site ${site} already exists`, 409);
+  // }
 
   const newRate = await Rate.create({ site, rate });
   res.status(201).json({ success: true, data: newRate });
