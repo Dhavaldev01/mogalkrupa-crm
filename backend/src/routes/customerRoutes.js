@@ -8,9 +8,11 @@ const {
   deleteCustomer,
   getCustomerSummary,
   getCustomerSummaryById,
+  exportCustomerBillingSummary,
 } = require("../controllers/customerController");
 
 router.route("/summary").get(getCustomerSummary);
+router.route("/billing-summary/export").get(exportCustomerBillingSummary);
 router.route("/").get(getCustomers).post(createCustomer);
 router
   .route("/:id")

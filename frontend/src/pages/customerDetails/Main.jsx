@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import BillingPeriodPicker from "@/components/common/BillingPeriodPicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddCustomerDialog from "@/components/common/AddCustomerDialog";
 import BulkPaymentDialog from "@/pages/invoices/BulkPaymentDialog";
@@ -35,6 +36,10 @@ export default function CustomerDetails() {
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState("");
 
+    const [exportPeriod, setExportPeriod] = useState(undefined);
+    const [exportStatus, setExportStatus] = useState("All");
+    const [isExporting, setIsExporting] = useState(false);
+
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [paymentInvoice, setPaymentInvoice] = useState(null);
     const [rowSelection, setRowSelection] = useState({});
@@ -49,7 +54,60 @@ export default function CustomerDetails() {
         );
     };
 
+    const handleExport = async () => {
+        try {
+            setIsExporting(true);
+            const params = { status: exportStatus };
+            if (exportPeriod?.type === "month" && exportPeriod.date) {
+                const mDate = exportPeriod.date;
+                const firstDay = new Date(mDate.getFullYear(), mDate.getMonth(), 1);
+                const lastDay = new Date(mDate.getFullYear(), mDate.getMonth() + 1, 0);
+                params.startDate = format(firstDay, 'yyyy-MM-dd');
+                params.endDate = format(lastDay, 'yyyy-MM-dd');
+            } else if (exportPeriod?.type === "range") {
+                if (exportPeriod.from && exportPeriod.to) {
+                    params.startDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                    params.endDate = format(exportPeriod.to, 'yyyy-MM-dd');
+                } else if (exportPeriod.from) {
+                    params.startDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                    params.endDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                }
+            }
 
+            const response = await invoiceService.exportCustomerInvoices(id, params);
+            
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = "export.xlsx";
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (match) filename = match[1];
+            }
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success("Excel exported successfully.");
+        } catch (error) {
+            console.error(error);
+            let msg = "Failed to export invoices. Please try again.";
+            if (error.response?.data?.type === 'application/json') {
+                 const text = await error.response.data.text();
+                 try {
+                     const json = JSON.parse(text);
+                     if (json.message) msg = json.message;
+                 } catch(e){}
+            } else if (error.response?.status === 404) {
+                 msg = "No invoices found for the selected month and status.";
+            }
+            toast.error(msg);
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     // 1. Fetch Customer Profile
     const { data: customerRes, isLoading: isCustomerLoading } = useQuery({
@@ -296,9 +354,31 @@ export default function CustomerDetails() {
         <>
             {/* MOBILE VIEW */}
             <div className="md:hidden flex flex-col min-h-screen bg-[#F8FAFC] pb-[100px] box-border w-full max-w-full overflow-x-hidden">
-                <div className="px-4 py-3">
-                    <h1 className="text-[26px] font-[800] text-[#0F1B35] leading-tight">Customers</h1>
-                    <p className="text-[13px] text-[#71809B]">Customer details and billing information</p>
+                <div className="px-4 py-3 flex flex-col gap-3">
+                    <div>
+                        <h1 className="text-[26px] font-[800] text-[#0F1B35] leading-tight">Customers</h1>
+                        <p className="text-[13px] text-[#71809B]">Customer details and billing information</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <BillingPeriodPicker value={exportPeriod} onApply={setExportPeriod} isMobile={true} />
+                        <Select value={exportStatus} onValueChange={setExportStatus}>
+                            <SelectTrigger className="h-[36px] bg-white border-[#E5E7EB] rounded-[8px] text-[13px] flex-1 min-w-[120px]">
+                                <SelectValue placeholder="All Records" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                                <SelectItem value="All">All Records</SelectItem>
+                                <SelectItem value="Paid">Paid</SelectItem>
+                                <SelectItem value="Unpaid">Unpaid</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            className="h-[36px] px-3 w-full bg-[#E50914] text-white text-[13px] font-bold rounded-[8px] hover:bg-[#C90C15] disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isExporting ? "Exporting..." : "Export Excel"}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="px-4 mb-4">
@@ -583,6 +663,26 @@ export default function CustomerDetails() {
                             <h1 className="text-[18px] font-bold text-[#243044] leading-tight">Customers</h1>
                             <p className="text-xs text-[#243044]/60">Customer details and billing information</p>
                         </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <BillingPeriodPicker value={exportPeriod} onApply={setExportPeriod} />
+                        <Select value={exportStatus} onValueChange={setExportStatus}>
+                            <SelectTrigger className="h-[36px] w-[130px] bg-white border-[#E5E7EB] rounded-[8px] text-[13px]">
+                                <SelectValue placeholder="All Records" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                                <SelectItem value="All">All Records</SelectItem>
+                                <SelectItem value="Paid">Paid</SelectItem>
+                                <SelectItem value="Unpaid">Unpaid</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            className="h-[36px] px-4 bg-[#E50914] text-white text-[13px] font-bold rounded-[8px] hover:bg-[#C90C15] disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {isExporting ? "Exporting..." : "Export Excel"}
+                        </button>
                     </div>
                 </div>
 

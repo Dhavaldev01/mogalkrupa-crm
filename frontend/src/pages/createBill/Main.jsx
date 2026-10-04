@@ -22,7 +22,7 @@ export default function CreateBill() {
     const [customerId, setCustomerId] = useState("");
     const [openCustomer, setOpenCustomer] = useState(false);
     const [openMobileCustomer, setOpenMobileCustomer] = useState(false);
-    const [items, setItems] = useState([{ jarkan: "", site: "" }]);
+    const [items, setItems] = useState([{ jarkan: "", rateId: "" }]);
     const [invoiceDiscount, setInvoiceDiscount] = useState("");
     const [notes, setNotes] = useState("");
 
@@ -68,10 +68,13 @@ export default function CreateBill() {
     const calculatedItems = useMemo(() => {
         return items.map((item) => {
             const jarkan = parseFloat(item.jarkan) || 0;
-            const site = parseFloat(item.site) || 0;
 
-            const rateObj = activeRatesList.find(r => Number(r.site) === site);
+            const rateObj = activeRatesList.find(
+                (r) => r._id === item.rateId
+            );
+
             const rate = rateObj ? Number(rateObj.rate) : 0;
+            const site = rateObj ? Number(rateObj.site) : 0;
 
             const dotAmount = jarkan * rate;
             const siteAmount = site;
@@ -80,19 +83,20 @@ export default function CreateBill() {
             return {
                 ...item,
                 rate,
+                site,
+                rateName: rateObj?.name || "",
                 dotAmount,
                 siteAmount,
                 total
             };
         });
-    }, [items, ratesList, activeRatesList]);
-
+    }, [items, activeRatesList]);
     const totals = useMemo(() => {
         let dotTotal = 0;
         let siteTotal = 0;
         let validRows = 0;
         calculatedItems.forEach(item => {
-            if (item.jarkan && item.site) {
+            if (item.jarkan && item.rateId) {
                 dotTotal += item.dotAmount;
                 siteTotal += item.siteAmount;
                 validRows++;
@@ -110,7 +114,7 @@ export default function CreateBill() {
     }, [calculatedItems, invoiceDiscount]);
 
     // Handlers
-    const handleAddRow = () => setItems([...items, { jarkan: "", site: "" }]);
+    const handleAddRow = () => setItems([...items, { jarkan: "", rateId: "" }]);
     const handleRemoveRow = (index) => {
         if (items.length === 1) return;
         setItems(items.filter((_, i) => i !== index));
@@ -128,8 +132,8 @@ export default function CreateBill() {
             if (field === "jarkan") {
                 const siteTrigger = document.querySelector(`[data-site-idx="${index}"]`);
                 if (siteTrigger) siteTrigger.focus();
-            } else if (field === "site") {
-                if (index === items.length - 1 && items[index].jarkan && items[index].site) {
+            } else if (field === "rateId") {
+                if (index === items.length - 1 && items[index].jarkan && items[index].rateId) {
                     handleAddRow();
                     setTimeout(() => {
                         const nextInput = document.getElementById(`jarkan-input-${index + 1}`);
@@ -146,7 +150,7 @@ export default function CreateBill() {
     const handleReset = () => {
         setCustomerId("");
         setDate(new Date().toISOString().split("T")[0]);
-        setItems([{ jarkan: "", site: "" }]);
+        setItems([{ jarkan: "", rateId: "" }]);
         setInvoiceDiscount("");
         setNotes(settingsRes?.data?.data?.defaultNotes || "");
     };
@@ -166,13 +170,13 @@ export default function CreateBill() {
         if (!customerId) return toast.error("Please select a customer");
         if (!date) return toast.error("Please select a date");
 
-        const validItems = items.filter(i => parseFloat(i.jarkan) > 0 && i.site !== "");
+        const validItems = items.filter(i => parseFloat(i.jarkan) > 0 && i.rateId !== "");
         if (validItems.length === 0) return toast.error("Please add at least one valid item");
 
         mutation.mutate({
             date,
             customerId,
-            items: validItems.map(i => ({ jarkan: Number(i.jarkan), site: Number(i.site) })),
+            items: validItems.map(i => ({ jarkan: Number(i.jarkan), rateId: i.rateId })),
             invoiceDiscount: Number(invoiceDiscount) || 0,
             notes
         });
@@ -305,13 +309,13 @@ export default function CreateBill() {
                                 <div className="grid grid-cols-2 gap-3 mb-3">
                                     <div>
                                         <label className="text-[10px] font-semibold text-[#64748B] mb-1 block">Site</label>
-                                        <Select value={item.site} onValueChange={(val) => handleItemChange(idx, "site", val)}>
+                                        <Select value={item.rateId} onValueChange={(val) => handleItemChange(idx, "rateId", val)}>
                                             <SelectTrigger className="h-[36px] w-full bg-white border-[#E5E7EB] rounded-[8px] text-[12px] font-medium text-[#0F172A]">
                                                 <SelectValue placeholder="Select" />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white z-50">
                                                 {activeRatesList.map(r => (
-                                                    <SelectItem key={r._id} value={r.site} className="text-[12px]">{r.site}</SelectItem>
+                                                    <SelectItem key={r._id} value={r._id} className="text-[12px]">{r.site} {r.name ? `(${r.name})` : ""} — ₹{safeNumber(r.rate).toFixed(2)}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -319,7 +323,7 @@ export default function CreateBill() {
                                     <div>
                                         <label className="text-[10px] font-semibold text-[#64748B] mb-1 block">Rate (₹)</label>
                                         <div className="h-[36px] w-full px-2.5 bg-[#F8FAFC] border border-[#E5E7EB] rounded-[8px] text-[12px] font-medium text-[#64748B] flex items-center">
-                                            {item.site ? safeNumber(item.rate).toFixed(2) : "-"}
+                                            {item.rateId ? safeNumber(item.rate).toFixed(2) : "-"}
                                         </div>
                                     </div>
                                 </div>
@@ -327,16 +331,16 @@ export default function CreateBill() {
                                 <div className="space-y-1.5 border-t border-[#E5E7EB] pt-2">
                                     <div className="flex justify-between items-center text-[10px]">
                                         <span className="text-[#64748B] font-medium">Dot Amount</span>
-                                        <span className="text-[#0F172A] font-semibold">₹{item.jarkan && item.site ? safeNumber(item.dotAmount).toFixed(2) : "0.00"}</span>
+                                        <span className="text-[#0F172A] font-semibold">₹{item.jarkan && item.rateId ? safeNumber(item.dotAmount).toFixed(2) : "0.00"}</span>
                                     </div>
                                     <div className="flex justify-between items-center text-[10px]">
                                         <span className="text-[#64748B] font-medium">Site Amount</span>
-                                        <span className="text-[#0F172A] font-semibold">₹{item.site ? safeNumber(item.siteAmount).toFixed(2) : "0.00"}</span>
+                                        <span className="text-[#0F172A] font-semibold">₹{item.rateId ? safeNumber(item.siteAmount).toFixed(2) : "0.00"}</span>
                                     </div>
                                     <div className="w-full h-[1px] bg-dashed bg-[#E5E7EB] my-1"></div>
                                     <div className="flex justify-between items-center text-[12px]">
                                         <span className="text-[#0F172A] font-bold">Total</span>
-                                        <span className="text-[#E50914] font-bold">₹{item.jarkan && item.site ? safeNumber(item.total).toFixed(2) : "0.00"}</span>
+                                        <span className="text-[#E50914] font-bold">₹{item.jarkan && item.rateId ? safeNumber(item.total).toFixed(2) : "0.00"}</span>
                                     </div>
                                 </div>
                             </div>
@@ -547,8 +551,8 @@ export default function CreateBill() {
                                             </td>
                                             <td className="py-2.5 px-4">
                                                 <Select
-                                                    value={item.site}
-                                                    onValueChange={(val) => handleItemChange(idx, "site", val)}
+                                                    value={item.rateId}
+                                                    onValueChange={(val) => handleItemChange(idx, "rateId", val)}
                                                 >
                                                     <SelectTrigger
                                                         id={`site-select-${idx}`}
@@ -562,10 +566,10 @@ export default function CreateBill() {
                                                             activeRatesList.map(r => (
                                                                 <SelectItem
                                                                     key={r._id}
-                                                                    value={r.site}
+                                                                    value={r._id}
                                                                     className="text-[13px] font-medium cursor-pointer transition-colors focus:bg-[#FDE8EA] focus:text-[#E50914]"
                                                                 >
-                                                                    {r.site}
+                                                                    {r.site} {r.name ? `(${r.name})` : ""} — ₹{safeNumber(r.rate).toFixed(2)}
                                                                 </SelectItem>
                                                             ))
                                                         ) : (
@@ -577,16 +581,16 @@ export default function CreateBill() {
                                                 </Select>
                                             </td>
                                             <td className="py-2.5 px-4 text-right font-medium text-[#475569] text-[14px]">
-                                                {item.site ? safeNumber(item.rate).toFixed(2) : "-"}
+                                                {item.rateId ? safeNumber(item.rate).toFixed(2) : "-"}
                                             </td>
                                             <td className="py-2.5 px-4 text-right font-medium text-[#475569] text-[14px]">
-                                                {item.jarkan && item.site ? safeNumber(item.dotAmount).toFixed(2) : "-"}
+                                                {item.jarkan && item.rateId ? safeNumber(item.dotAmount).toFixed(2) : "-"}
                                             </td>
                                             <td className="py-2.5 px-4 text-right font-medium text-[#475569] text-[14px]">
-                                                {item.site ? safeNumber(item.siteAmount).toFixed(2) : "-"}
+                                                {item.rateId ? safeNumber(item.siteAmount).toFixed(2) : "-"}
                                             </td>
                                             <td className="py-2.5 px-4 text-right font-bold text-[#0F172A] text-[14px]">
-                                                {item.jarkan && item.site ? safeNumber(item.total).toFixed(2) : "-"}
+                                                {item.jarkan && item.rateId ? safeNumber(item.total).toFixed(2) : "-"}
                                             </td>
                                             <td className="py-2.5 px-4 text-center">
                                                 <button

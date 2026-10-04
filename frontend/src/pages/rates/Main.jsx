@@ -48,6 +48,7 @@ export default function Rates() {
         if (!debouncedSearch) return rates;
         const lowerSearch = debouncedSearch.toLowerCase();
         return rates.filter(r => 
+            (r.name && String(r.name).toLowerCase().includes(lowerSearch)) ||
             String(r.site).toLowerCase().includes(lowerSearch) || 
             String(r.rate).toLowerCase().includes(lowerSearch)
         );
@@ -73,6 +74,11 @@ export default function Rates() {
             id: "index",
             header: "#",
             cell: (info) => (pagination.pageIndex * pagination.pageSize) + info.row.index + 1
+        },
+        {
+            accessorKey: "name",
+            header: "Name / Type",
+            cell: (info) => <span className="font-bold text-secondary">{info.getValue() || "-"}</span>
         },
         {
             accessorKey: "site",
@@ -182,7 +188,11 @@ export default function Rates() {
                         const pillClass = isActive ? "bg-success/10 text-success" : "bg-secondary/10 text-secondary";
                         const dotClass = isActive ? "bg-success" : "bg-secondary";
                         return (
-                            <div key={r._id} className="bg-white p-3 rounded-[11px] border border-secondary/10 shadow-[0_1px_2px_rgba(0,0,0,0.03)] grid grid-cols-[1fr_1fr_auto] items-center gap-2 relative">
+                            <div key={r._id} className="bg-white p-3 rounded-[11px] border border-secondary/10 shadow-[0_1px_2px_rgba(0,0,0,0.03)] grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2 relative">
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-[10px] text-secondary/60 mb-0.5">Name / Type</span>
+                                    <span className="text-[14px] font-bold text-secondary truncate">{r.name || "-"}</span>
+                                </div>
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[10px] text-secondary/60 mb-0.5">Site Size</span>
                                     <span className="text-[14px] font-bold text-secondary truncate">{r.site}</span>
@@ -335,12 +345,14 @@ export default function Rates() {
 }
 
 function RateDialog({ open, onClose, rateToEdit, queryClient }) {
+    const [name, setName] = useState("");
     const [site, setSite] = useState("");
     const [rate, setRate] = useState("");
     const [isActive, setIsActive] = useState(true);
 
     useEffect(() => {
         if (open) {
+            setName(rateToEdit ? rateToEdit.name || "" : "");
             setSite(rateToEdit ? rateToEdit.site : "");
             setRate(rateToEdit ? rateToEdit.rate : "");
             setIsActive(rateToEdit ? (rateToEdit.isActive !== false) : true);
@@ -367,9 +379,10 @@ function RateDialog({ open, onClose, rateToEdit, queryClient }) {
         e.preventDefault();
         const siteVal = Number(site);
         const rateVal = Number(rate);
+        if (!name?.trim()) return toast.error("Name is required");
         if (!site || siteVal <= 0) return toast.error("Site must be greater than 0");
         if (rate === "" || rateVal < 0) return toast.error("Rate cannot be negative");
-        mutation.mutate({ site: siteVal, rate: rateVal, isActive });
+        mutation.mutate({ name: name.trim(), site: siteVal, rate: rateVal, isActive });
     }
 
     return (
@@ -385,6 +398,17 @@ function RateDialog({ open, onClose, rateToEdit, queryClient }) {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="bg-[#FAF9F7] rounded-b-[12px]">
                     <div className="space-y-4 p-4">
+                        <TextInput
+                            isRequired
+                            label="Rate Name / Type"
+                            type="text"
+                            placeholder="e.g. Jarkan, CNC, Laser"
+                            className="py-2.5 px-3.5 rounded-[8px] text-sm bg-white"
+                            labelClassName="text-xs font-bold text-secondary uppercase"
+                            containerClassName="space-y-1"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                        />
                         <TextInput
                             isRequired
                             label="Site Size"

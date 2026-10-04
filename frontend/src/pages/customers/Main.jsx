@@ -9,8 +9,11 @@ import AllCustomersTable from "./component/AllCustomersTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn, safeNumber, formatCurrency, formatIndianMobile } from "@/lib/utils";
-import { Users, FileText, IndianRupee, Clock, Plus, Trash2, Loader2, X, TriangleAlert, Phone, ChevronRight, Filter } from "lucide-react";
+import { Users, FileText, IndianRupee, Clock, Plus, Trash2, Loader2, X, TriangleAlert, Phone, ChevronRight, Filter, Calendar as CalendarIcon, Download } from "lucide-react";
 import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import BillingPeriodPicker from "@/components/common/BillingPeriodPicker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Customers() {
     const queryClient = useQueryClient();
@@ -24,6 +27,10 @@ export default function Customers() {
     const [searchInput, setSearchInput] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
 
+    const [exportPeriod, setExportPeriod] = useState(undefined);
+    const [exportStatus, setExportStatus] = useState("All");
+    const [isExporting, setIsExporting] = useState(false);
+
     useEffect(() => {
         const timer = setTimeout(() => {
             const trimmed = searchInput.trim();
@@ -36,24 +43,39 @@ export default function Customers() {
     }, [searchInput, debouncedSearch]);
 
 
+    const getFilterParams = () => {
+        const params = {
+            page: pagination.pageIndex + 1,
+            limit: pagination.pageSize,
+            search: debouncedSearch,
+            invStatus: exportStatus !== "All" ? exportStatus : undefined
+        };
+        if (exportPeriod?.type === "month" && exportPeriod.date) {
+            const mDate = exportPeriod.date;
+            const firstDay = new Date(mDate.getFullYear(), mDate.getMonth(), 1);
+            const lastDay = new Date(mDate.getFullYear(), mDate.getMonth() + 1, 0);
+            params.startDate = format(firstDay, 'yyyy-MM-dd');
+            params.endDate = format(lastDay, 'yyyy-MM-dd');
+        } else if (exportPeriod?.type === "range") {
+            if (exportPeriod.from && exportPeriod.to) {
+                params.startDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                params.endDate = format(exportPeriod.to, 'yyyy-MM-dd');
+            } else if (exportPeriod.from) {
+                params.startDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                params.endDate = format(exportPeriod.from, 'yyyy-MM-dd');
+            }
+        }
+        return params;
+    };
+
     const { data: customersResponse, isFetching, isLoading, refetch } = useQuery({
-        queryKey: ["customers", {
-            page: pagination.pageIndex + 1,
-            limit: pagination.pageSize,
-            search: debouncedSearch
-        }],
-        queryFn: () => customerService.getCustomers({
-            page: pagination.pageIndex + 1,
-            limit: pagination.pageSize,
-            search: debouncedSearch
-        })
+        queryKey: ["customers", getFilterParams()],
+        queryFn: () => customerService.getCustomers(getFilterParams())
     });
 
-
-
     const { data: summaryResponse } = useQuery({
-        queryKey: ["customerSummary"],
-        queryFn: () => customerService.getCustomerSummary()
+        queryKey: ["customerSummary", getFilterParams()],
+        queryFn: () => customerService.getCustomerSummary(getFilterParams())
     });
 
     const summaryData = summaryResponse?.data?.data || { totalCustomers: 0, totalBills: 0, totalBilling: 0, pendingAmount: 0 };
@@ -62,6 +84,58 @@ export default function Customers() {
     const formattedData = {
         data: customersArray,
         totalRecord: customersResponse?.data?.pagination?.total || 0
+    };
+
+    const handleExport = async () => {
+        try {
+            setIsExporting(true);
+            const params = { 
+                customerId: "All",
+                invStatus: exportStatus !== "All" ? exportStatus : undefined,
+                search: debouncedSearch || undefined
+            };
+            
+            if (exportPeriod?.type === "month" && exportPeriod.date) {
+                const mDate = exportPeriod.date;
+                const firstDay = new Date(mDate.getFullYear(), mDate.getMonth(), 1);
+                const lastDay = new Date(mDate.getFullYear(), mDate.getMonth() + 1, 0);
+                params.startDate = format(firstDay, 'yyyy-MM-dd');
+                params.endDate = format(lastDay, 'yyyy-MM-dd');
+            } else if (exportPeriod?.type === "range") {
+                if (exportPeriod.from && exportPeriod.to) {
+                    params.startDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                    params.endDate = format(exportPeriod.to, 'yyyy-MM-dd');
+                } else if (exportPeriod.from) {
+                    params.startDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                    params.endDate = format(exportPeriod.from, 'yyyy-MM-dd');
+                }
+            }
+
+            const response = await customerService.exportCustomerBillingSummary(params);
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = "Billing-Summary.xlsx";
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                if (filenameMatch && filenameMatch.length === 2) {
+                    filename = filenameMatch[1];
+                }
+            }
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success("Customer billing report exported successfully.");
+        } catch (error) {
+            console.error(error);
+            const msg = error?.response?.data?.message || "Failed to export customer billing report.";
+            toast.error(msg);
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     return (
@@ -110,6 +184,27 @@ export default function Customers() {
 
             {/* Mobile Actions: Search, Filter, Add Customer */}
             <div className="md:hidden flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2 w-full">
+                    <BillingPeriodPicker value={exportPeriod} onApply={setExportPeriod} isMobile={true} />
+                    <Select value={exportStatus} onValueChange={setExportStatus}>
+                        <SelectTrigger className="h-[36px] bg-white border-[#E5E7EB] rounded-[8px] text-[13px] flex-1 min-w-[120px]">
+                            <SelectValue placeholder="All Records" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                            <SelectItem value="All" className="text-[13px]">All Records</SelectItem>
+                            <SelectItem value="Paid" className="text-[13px]">Paid</SelectItem>
+                            <SelectItem value="Unpaid" className="text-[13px]">Unpaid</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <button
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="h-[36px] px-4 bg-[#F8FAFC] border border-[#E5E7EB] text-[#0F1B35] rounded-[8px] flex items-center justify-center gap-2 text-[13px] font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 flex-1"
+                    >
+                        {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                        {isExporting ? "Exporting..." : "Export Excel"}
+                    </button>
+                </div>
                 <div className="w-full">
                     <SearchComponent
                         value={searchInput}
@@ -212,14 +307,36 @@ export default function Customers() {
 
             {/* Desktop Customer List Container */}
             <div className="hidden md:flex bg-white rounded-[8px] shadow-[0px_2px_8px_0px_rgba(0,0,0,0.04)] border border-[#E4E7EC] flex-col">
-                <div className="flex items-center justify-between gap-4 p-4 border-b border-[#E4E7EC]">
-                    <h2 className="text-[18px] font-bold text-[#0F1B35]">Customers</h2>
-                    <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-4 p-4 border-b border-[#E4E7EC] flex-wrap">
+                    <h2 className="text-[18px] font-bold text-[#0F1B35] min-w-[100px]">Customers</h2>
+                    
+                    <div className="flex items-center gap-2">
+                        <BillingPeriodPicker value={exportPeriod} onApply={setExportPeriod} />
+                        <Select value={exportStatus} onValueChange={setExportStatus}>
+                            <SelectTrigger className="h-[36px] w-[130px] bg-white border-[#E5E7EB] rounded-[8px] text-[13px]">
+                                <SelectValue placeholder="All Records" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                                <SelectItem value="All" className="text-[13px]">All Records</SelectItem>
+                                <SelectItem value="Paid" className="text-[13px]">Paid</SelectItem>
+                                <SelectItem value="Unpaid" className="text-[13px]">Unpaid</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            className="h-[36px] px-4 bg-white border border-[#E5E7EB] text-[#0F1B35] rounded-[8px] flex items-center gap-2 text-[13px] font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        >
+                            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                            {isExporting ? "Exporting..." : "Export Excel"}
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-3 ml-auto">
                         <SearchComponent
                             value={searchInput}
                             onChange={(val) => setSearchInput(val)}
                             onClear={() => setSearchInput("")}
-                            // containerStyle="w-[400px]"
                             placeholder="Search by name, company or mobile..."
                         />
                         <button

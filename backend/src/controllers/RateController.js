@@ -16,33 +16,58 @@ const getRateById = asyncHandler(async (req, res) => {
 });
 
 const createRate = asyncHandler(async (req, res) => {
-  const { site, rate } = req.body;
-  if (site == null || rate == null) {
-    throw new CustomError("Site and rate are required", 400);
+  const { name, site, rate, isActive } = req.body;
+
+  if (!name || site == null || rate == null) {
+    throw new CustomError(
+      "Name, site and rate are required",
+      400
+    );
   }
 
-  // const existingRate = await Rate.findOne({ site });
-  // if (existingRate) {
-  //   throw new CustomError(`Site ${site} already exists`, 409);
-  // }
+  const cleanName = name.trim();
 
-  const newRate = await Rate.create({ site, rate });
-  res.status(201).json({ success: true, data: newRate });
+  const existingRate = await Rate.findOne({
+    name: cleanName,
+    site: Number(site),
+  });
+
+  if (existingRate) {
+    throw new CustomError(
+      `${cleanName} rate for site ${site} already exists`,
+      409
+    );
+  }
+
+  const newRate = await Rate.create({
+    name: cleanName,
+    site: Number(site),
+    rate: Number(rate),
+    isActive,
+  });
+
+  res.status(201).json({
+    success: true,
+    data: newRate,
+  });
 });
 
 const updateRate = asyncHandler(async (req, res) => {
-  const { site, rate, isActive } = req.body;
+  const { name, site, rate, isActive } = req.body;
 
-  if (site != null) {
-    const existingRate = await Rate.findOne({ site, _id: { $ne: req.params.id } });
+  if (name != null && site != null) {
+    const existingRate = await Rate.findOne({ name: name.trim(), site, _id: { $ne: req.params.id } });
     if (existingRate) {
-      throw new CustomError(`Site ${site} already exists`, 409);
+      throw new CustomError(`${name.trim()} rate for site ${site} already exists`, 409);
     }
   }
 
+  const updateData = { ...req.body };
+  if (name) updateData.name = name.trim();
+
   const updatedRate = await Rate.findByIdAndUpdate(
     req.params.id,
-    req.body,
+    updateData,
     { new: true, runValidators: true }
   );
 

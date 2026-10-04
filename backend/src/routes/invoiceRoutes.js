@@ -7,8 +7,13 @@ const {
   createInvoice,
   updateInvoiceStatus,
   deleteInvoice,
+  exportCustomerInvoices,
+  getEarliestInvoiceYear,
 } = require("../controllers/InvoiceController");
 const paymentRoutes = require("./paymentRoutes");
+
+router.route("/earliest-year").get(getEarliestInvoiceYear);
+router.route("/customer/:id/export").get(exportCustomerInvoices);
 
 router.route("/").get(getInvoices).post(createInvoice);
 router.route("/:id").get(getInvoiceById).delete(deleteInvoice);
