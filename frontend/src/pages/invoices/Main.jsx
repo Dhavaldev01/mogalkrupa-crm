@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { invoiceService, dashboardService } from "@/services";
+import { invoiceService, dashboardService, settingsService } from "@/services";
 import Button from "@/components/common/Button";
 import RecordPaymentDialog from "./RecordPaymentDialog";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { safeNumber, formatCurrency } from "@/lib/utils";
-import { FileText, IndianRupee, Clock, CheckCircle2 } from "lucide-react";
+import { FileText, IndianRupee, Clock, CheckCircle2, MessageCircle } from "lucide-react";
 import AllInvoiceTable from "./component/AllInvoiceTable";
+import InvoiceTemplate from "./component/InvoiceTemplate";
+import { generateAndShareWhatsApp, normalizePhone } from "@/lib/whatsappHelper";
 import SearchComponent from "@/components/common/SearchComponent";
 import DateRangeFilter from "@/components/common/DateRangeFilter";
 import { Link, useNavigate } from "react-router-dom";
@@ -49,6 +51,38 @@ export default function Invoices() {
         pageIndex: 0,
         pageSize: 20,
     });
+    const printRef = useRef(null);
+    const [shareInvoiceId, setShareInvoiceId] = useState(null);
+
+    const { data: settingsRes } = useQuery({
+        queryKey: ["settings"],
+        queryFn: () => settingsService.get(),
+    });
+    const settings = settingsRes?.data?.data || {};
+
+    const { data: shareInvoiceRes, isFetching: isFetchingShare } = useQuery({
+        queryKey: ["invoice", shareInvoiceId],
+        queryFn: () => invoiceService.getById(shareInvoiceId),
+        enabled: !!shareInvoiceId,
+    });
+
+    useEffect(() => {
+        if (shareInvoiceId && shareInvoiceRes?.data?.data && !isFetchingShare) {
+            setTimeout(() => {
+                generateAndShareWhatsApp(printRef.current, shareInvoiceRes.data.data, settings);
+                setShareInvoiceId(null);
+            }, 100);
+        }
+    }, [shareInvoiceId, shareInvoiceRes, isFetchingShare, settings]);
+
+    const handleWhatsAppShare = (inv, e) => {
+        e?.stopPropagation();
+        if (!normalizePhone(inv?.customerSnapshot?.phone)) {
+            toast.error("Customer WhatsApp number not available");
+            return;
+        }
+        setShareInvoiceId(inv._id);
+    };
 
     const { data: res, isLoading, isFetching } = useQuery({
         queryKey: ["invoices", {
@@ -209,9 +243,19 @@ export default function Invoices() {
                                         </div>
                                         <div className="flex flex-col items-end shrink-0 pl-2">
                                             <span className="text-[13px] font-bold text-[#0F172A]">₹{formatCurrency(safeNumber(inv.grandTotal))}</span>
-                                            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] mt-1", statusClass)}>
-                                                {statusText}
-                                            </span>
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <button
+                                                    onClick={(e) => handleWhatsAppShare(inv, e)}
+                                                    disabled={!normalizePhone(inv?.customerSnapshot?.phone)}
+                                                    className="p-1 transition-colors rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    title={!normalizePhone(inv?.customerSnapshot?.phone) ? "Customer WhatsApp number not available" : "Send on WhatsApp"}
+                                                >
+                                                    <MessageCircle size={14} strokeWidth={2} className="text-[#25D366]" />
+                                                </button>
+                                                <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-[4px]", statusClass)}>
+                                                    {statusText}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -295,7 +339,18 @@ export default function Invoices() {
                             setPagination={setPagination}
                             onRecordPayment={handleOpenPayment}
                             onDeleteInvoice={handleOpenDelete}
+                            onWhatsAppShare={handleWhatsAppShare}
+                            settings={settings}
                         />
+                    </div>
+                </div>
+
+                {/* Hidden component for WhatsApp PDF Generation */}
+                <div className="fixed opacity-0 pointer-events-none -z-50 top-[-10000px] left-0">
+                    <div ref={printRef}>
+                        {shareInvoiceRes?.data?.data && (
+                            <InvoiceTemplate invoice={shareInvoiceRes.data.data} settings={settings} />
+                        )}
                     </div>
                 </div>
 

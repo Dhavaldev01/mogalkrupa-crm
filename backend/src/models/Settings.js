@@ -8,6 +8,7 @@ const settingsSchema = new mongoose.Schema(
     phone1: { type: String, default: "" },
     owner2Name: { type: String, default: "" },
     phone2: { type: String, default: "" },
+    whatsappNumber: { type: String, default: "" },
     address: { type: String, default: "" },
     city: { type: String, default: "" },
     state: { type: String, default: "Gujarat" },

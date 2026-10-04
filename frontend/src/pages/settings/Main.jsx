@@ -60,6 +60,7 @@ export default function Settings() {
         shopSubtitle: "CNC & Tools",
         owner1Name: "",
         phone1: "",
+        whatsappNumber: "",
         address: "",
         city: "",
         state: "Gujarat",
@@ -248,6 +249,7 @@ export default function Settings() {
                                     <Input label="Owner Name" name="owner1Name" value={formData.owner1Name} onChange={handleChange} placeholder="e.g. Dhaval Patel" />
                                     <Input label="GST Number" name="gstin" value={formData.gstin} onChange={handleChange} placeholder="e.g. 24ABCDE1234F1Z5" />
                                     <Input label="Mobile No." name="phone1" value={formData.phone1} onChange={handleChange} placeholder="e.g. 98246 79179" required />
+                                    <Input label="WhatsApp Number" name="whatsappNumber" value={formData.whatsappNumber || ""} onChange={handleChange} placeholder="e.g. +91 98765 43210" />
                                     <Input label="Email" name="email" value={formData.email} onChange={handleChange} type="email" placeholder="e.g. contact@mogal.com" />
                                     <div className="sm:col-span-2">
                                         <Input label="Website" name="website" value={formData.website} onChange={handleChange} placeholder="e.g. www.mogal.com" />

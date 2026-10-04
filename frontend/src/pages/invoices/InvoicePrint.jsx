@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { invoiceService, settingsService } from "@/services";
-import { Printer, Download, ArrowLeft } from "lucide-react";
+import { Printer, Download, ArrowLeft, MessageCircle } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 import InvoiceTemplate from "./component/InvoiceTemplate";
 import { toast } from "sonner";
+import { generateAndShareWhatsApp, normalizePhone } from "@/lib/whatsappHelper";
 
 export default function InvoicePrint() {
   const { id } = useParams();
@@ -230,6 +231,14 @@ export default function InvoicePrint() {
   };
 
   // ============================
+  // WHATSAPP SHARE
+  // ============================
+  const handleWhatsAppShare = () => {
+    generateAndShareWhatsApp(printRef.current, invoice, settings);
+  };
+
+
+  // ============================
   // LOADING
   // ============================
   if (isLoading) {
@@ -350,6 +359,33 @@ export default function InvoicePrint() {
             <Download size={16} />
 
             Download PDF
+          </button>
+
+          {/* WHATSAPP */}
+          <button
+            onClick={handleWhatsAppShare}
+            disabled={!normalizePhone(invoice?.customerSnapshot?.phone)}
+            title={!normalizePhone(invoice?.customerSnapshot?.phone) ? "Customer WhatsApp number not available" : ""}
+            className="
+              flex
+              items-center
+              gap-2
+              bg-[#25D366]
+              text-white
+              py-2
+              px-4
+              rounded-lg
+              text-sm
+              font-semibold
+              shadow-sm
+              hover:bg-[#1DA851]
+              transition-colors
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+            "
+          >
+            <MessageCircle size={16} />
+            Send on WhatsApp
           </button>
 
         </div>

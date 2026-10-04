@@ -10,6 +10,14 @@ const getSettings = asyncHandler(async (req, res) => {
 });
 
 const updateSettings = asyncHandler(async (req, res) => {
+  if (req.body.whatsappNumber) {
+    let num = req.body.whatsappNumber.replace(/[\s\+\-\(\)]/g, "");
+    if (num.length === 10) {
+      num = "91" + num;
+    }
+    req.body.whatsappNumber = num;
+  }
+
   let settings = await Settings.findOne();
   if (!settings) {
     settings = await Settings.create(req.body);

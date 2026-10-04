@@ -18,7 +18,8 @@ import {
 
 import { cn, safeNumber } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, MoreHorizontal, Trash2, BadgeIndianRupee, Printer } from "lucide-react";
+import { Eye, MoreHorizontal, Trash2, BadgeIndianRupee, Printer, MessageCircle } from "lucide-react";
+import { normalizePhone } from "@/lib/whatsappHelper";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export default function AllInvoiceTable({ data, isLoading, isFetching, pagination, setPagination, onRecordPayment, onDeleteInvoice }) {
+export default function AllInvoiceTable({ data, isLoading, isFetching, pagination, setPagination, onRecordPayment, onDeleteInvoice, onWhatsAppShare, settings }) {
     const columns = [
         {
             id: "index",
@@ -127,6 +128,14 @@ export default function AllInvoiceTable({ data, isLoading, isFetching, paginatio
                 const inv = info.row.original;
                 return (
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => onWhatsAppShare(inv)}
+                            className="p-1.5 transition-colors rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!normalizePhone(inv.customerSnapshot?.phone) ? "Customer WhatsApp number not available" : "Send on WhatsApp"}
+                            disabled={!normalizePhone(inv.customerSnapshot?.phone)}
+                        >
+                            <MessageCircle size={16} strokeWidth={2} className="text-[#25D366]" />
+                        </button>
                         <Link to={`/invoices/${inv._id}`} className="p-1.5 text-[#667085] hover:text-[#0F1B35] transition-colors rounded hover:bg-gray-100" title="View Invoice">
                             <Eye size={16} strokeWidth={2} />
                         </Link>
