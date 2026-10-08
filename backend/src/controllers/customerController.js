@@ -8,6 +8,7 @@ const getCustomerSummary = asyncHandler(async (req, res) => {
   const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
   const invStatus = req.query.invStatus;
 
+
   let invoiceMatch = {};
   if (startDate && endDate) {
     invoiceMatch.date = { $gte: startDate, $lte: endDate };
@@ -16,7 +17,7 @@ const getCustomerSummary = asyncHandler(async (req, res) => {
   } else if (endDate) {
     invoiceMatch.date = { $lte: endDate };
   }
-  
+
   if (invStatus === 'Paid') {
     invoiceMatch.pendingAmount = { $lte: 0 };
   } else if (invStatus === 'Unpaid') {
@@ -38,7 +39,7 @@ const getCustomerSummary = asyncHandler(async (req, res) => {
 
   const totalCustomers = await Customer.countDocuments({ isActive: { $ne: false } });
   const invoiceAggregation = await Invoice.aggregate(invoicePipeline);
-  
+
   const totals = invoiceAggregation[0] || {
     totalBills: 0,
     totalBilling: 0,
@@ -68,7 +69,7 @@ const getCustomers = asyncHandler(async (req, res) => {
   const invStatus = req.query.invStatus;
 
   let matchQuery = {};
-  
+
   if (status === 'active') {
     matchQuery.isActive = { $ne: false };
   } else if (status === 'inactive') {
@@ -79,7 +80,7 @@ const getCustomers = asyncHandler(async (req, res) => {
     // default to active
     matchQuery.isActive = { $ne: false };
   }
-  
+
   if (search) {
     const searchRegex = new RegExp(search, "i");
     matchQuery.$or = [
@@ -99,7 +100,7 @@ const getCustomers = asyncHandler(async (req, res) => {
   } else if (endDate) {
     invoiceMatch.date = { $lte: endDate };
   }
-  
+
   if (invStatus === 'Paid') {
     invoiceMatch.pendingAmount = { $lte: 0 };
   } else if (invStatus === 'Unpaid') {
@@ -220,8 +221,8 @@ const createCustomer = asyncHandler(async (req, res) => {
   }
 
   const normalizedMobile = normalizeMobile(mobileNumber);
-  const existingCustomer = await Customer.findOne({ 
-    $expr: { $eq: [{ $substr: ["$mobileNumber", { $subtract: [{ $strLenCP: "$mobileNumber" }, 10] }, 10] }, normalizedMobile] } 
+  const existingCustomer = await Customer.findOne({
+    $expr: { $eq: [{ $substr: ["$mobileNumber", { $subtract: [{ $strLenCP: "$mobileNumber" }, 10] }, 10] }, normalizedMobile] }
   });
   // Wait, MongoDB aggregation string functions might be slow. Since we already have data, we'll do a RegExp search or fetch and compare, or just check exact match on normalized. But the DB might have unnormalized ones!
   // Actually, wait, let's just use regex to match the last 10 digits:
@@ -281,14 +282,14 @@ const deleteCustomer = asyncHandler(async (req, res) => {
   }
 
   const invoiceCount = await Invoice.countDocuments({ customer: customerId });
-  
+
   if (invoiceCount > 0) {
     customer.isActive = false;
     await customer.save();
   } else {
     await Customer.findByIdAndDelete(customerId);
   }
-  
+
   res.status(200).json({ success: true, data: {} });
 });
 
@@ -297,7 +298,7 @@ const exportCustomerBillingSummary = asyncHandler(async (req, res) => {
   const ExcelJS = require("exceljs");
 
   let customerMatchQuery = { isActive: { $ne: false } };
-  
+
   if (customerId && customerId !== "All") {
     const { mongoose } = require("mongoose");
     customerMatchQuery._id = new mongoose.Types.ObjectId(customerId);
@@ -323,7 +324,7 @@ const exportCustomerBillingSummary = asyncHandler(async (req, res) => {
     endObj.setDate(endObj.getDate() + 1);
     invoiceMatch.date = { $gte: startObj, $lt: endObj };
   }
-  
+
   if (invStatus === 'Paid') {
     invoiceMatch.pendingAmount = { $lte: 0 };
   } else if (invStatus === 'Unpaid') {
@@ -399,54 +400,54 @@ const exportCustomerBillingSummary = asyncHandler(async (req, res) => {
   };
 
   const addInfoRow = (rowNum, leftLabel, leftValue, rightLabel, rightValue) => {
-      const row = worksheet.getRow(rowNum);
-      row.height = 25;
-      
-      worksheet.mergeCells(`A${rowNum}:B${rowNum}`);
-      ['A', 'B'].forEach(col => {
-          const cell = worksheet.getCell(`${col}${rowNum}`);
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
-          cell.border = { top: {style:'thin', color:{argb:'FFCCCCCC'}}, left: {style:'thin', color:{argb:'FFCCCCCC'}}, bottom: {style:'thin', color:{argb:'FFCCCCCC'}}, right: {style:'thin', color:{argb:'FFCCCCCC'}} };
+    const row = worksheet.getRow(rowNum);
+    row.height = 25;
+
+    worksheet.mergeCells(`A${rowNum}:B${rowNum}`);
+    ['A', 'B'].forEach(col => {
+      const cell = worksheet.getCell(`${col}${rowNum}`);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
+      cell.border = { top: { style: 'thin', color: { argb: 'FFCCCCCC' } }, left: { style: 'thin', color: { argb: 'FFCCCCCC' } }, bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } }, right: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
+    });
+    const llCell = worksheet.getCell(`A${rowNum}`);
+    llCell.value = leftLabel;
+    llCell.font = { bold: true };
+    llCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+    worksheet.mergeCells(`C${rowNum}:D${rowNum}`);
+    ['C', 'D'].forEach(col => {
+      const cell = worksheet.getCell(`${col}${rowNum}`);
+      cell.border = { top: { style: 'thin', color: { argb: 'FFCCCCCC' } }, left: { style: 'thin', color: { argb: 'FFCCCCCC' } }, bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } }, right: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
+    });
+    const lvCell = worksheet.getCell(`C${rowNum}`);
+    lvCell.value = leftValue;
+    lvCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+    if (rightLabel) {
+      const rlCell = worksheet.getCell(`G${rowNum}`);
+      rlCell.value = rightLabel;
+      rlCell.font = { bold: true };
+      rlCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
+      rlCell.border = { top: { style: 'thin', color: { argb: 'FFCCCCCC' } }, left: { style: 'thin', color: { argb: 'FFCCCCCC' } }, bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } }, right: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
+      rlCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+      worksheet.mergeCells(`H${rowNum}:I${rowNum}`);
+      ['H', 'I'].forEach(col => {
+        const cell = worksheet.getCell(`${col}${rowNum}`);
+        cell.border = { top: { style: 'thin', color: { argb: 'FFCCCCCC' } }, left: { style: 'thin', color: { argb: 'FFCCCCCC' } }, bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } }, right: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
       });
-      const llCell = worksheet.getCell(`A${rowNum}`);
-      llCell.value = leftLabel;
-      llCell.font = { bold: true };
-      llCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-
-      worksheet.mergeCells(`C${rowNum}:D${rowNum}`);
-      ['C', 'D'].forEach(col => {
-          const cell = worksheet.getCell(`${col}${rowNum}`);
-          cell.border = { top: {style:'thin', color:{argb:'FFCCCCCC'}}, left: {style:'thin', color:{argb:'FFCCCCCC'}}, bottom: {style:'thin', color:{argb:'FFCCCCCC'}}, right: {style:'thin', color:{argb:'FFCCCCCC'}} };
-      });
-      const lvCell = worksheet.getCell(`C${rowNum}`);
-      lvCell.value = leftValue;
-      lvCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-
-      if (rightLabel) {
-        const rlCell = worksheet.getCell(`G${rowNum}`);
-        rlCell.value = rightLabel;
-        rlCell.font = { bold: true };
-        rlCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
-        rlCell.border = { top: {style:'thin', color:{argb:'FFCCCCCC'}}, left: {style:'thin', color:{argb:'FFCCCCCC'}}, bottom: {style:'thin', color:{argb:'FFCCCCCC'}}, right: {style:'thin', color:{argb:'FFCCCCCC'}} };
-        rlCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-
-        worksheet.mergeCells(`H${rowNum}:I${rowNum}`);
-        ['H', 'I'].forEach(col => {
-            const cell = worksheet.getCell(`${col}${rowNum}`);
-            cell.border = { top: {style:'thin', color:{argb:'FFCCCCCC'}}, left: {style:'thin', color:{argb:'FFCCCCCC'}}, bottom: {style:'thin', color:{argb:'FFCCCCCC'}}, right: {style:'thin', color:{argb:'FFCCCCCC'}} };
-        });
-        const rvCell = worksheet.getCell(`H${rowNum}`);
-        rvCell.value = rightValue;
-        rvCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-      }
+      const rvCell = worksheet.getCell(`H${rowNum}`);
+      rvCell.value = rightValue;
+      rvCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    }
   };
 
   const formatDate = (dateString) => {
-      const d = new Date(dateString);
-      const day = d.getDate().toString().padStart(2, '0');
-      const monthStr = d.toLocaleString('en-US', { month: 'short' });
-      const year = d.getFullYear();
-      return `${day} ${monthStr} ${year}`;
+    const d = new Date(dateString);
+    const day = d.getDate().toString().padStart(2, '0');
+    const monthStr = d.toLocaleString('en-US', { month: 'short' });
+    const year = d.getFullYear();
+    return `${day} ${monthStr} ${year}`;
   };
 
   const dateRangeStr = (startDate && endDate) ? `${formatDate(startDate)} - ${formatDate(endDate)}` : "All Dates";
@@ -472,7 +473,7 @@ const exportCustomerBillingSummary = asyncHandler(async (req, res) => {
     cell.font = { bold: true, color: { argb: 'FF800000' } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-    cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
   });
 
   worksheet.views = [{ state: 'frozen', ySplit: 7 }];
@@ -493,25 +494,25 @@ const exportCustomerBillingSummary = asyncHandler(async (req, res) => {
     row.getCell(2).value = cust.shopName || "";
     row.getCell(3).value = `${cust.firstName || ""} ${cust.lastName || ""}`.trim();
     row.getCell(4).value = cust.mobileNumber || "";
-    
+
     row.getCell(5).value = ag.totalBills || 0;
     row.getCell(6).value = ag.totalBilling || 0;
     row.getCell(7).value = ag.paidAmount || 0;
     row.getCell(8).value = ag.discount || 0;
     row.getCell(9).value = ag.pendingAmount || 0;
-    
+
     [6, 7, 8, 9].forEach(colIndex => {
-        row.getCell(colIndex).numFmt = '₹#,##0.00';
+      row.getCell(colIndex).numFmt = '₹#,##0.00';
     });
 
     for (let i = 1; i <= 9; i++) {
-        const cell = row.getCell(i);
-        cell.border = { top: {style:'thin', color:{argb:'FFCCCCCC'}}, left: {style:'thin', color:{argb:'FFCCCCCC'}}, bottom: {style:'thin', color:{argb:'FFCCCCCC'}}, right: {style:'thin', color:{argb:'FFCCCCCC'}} };
-        if (i === 1 || i === 5) {
-            cell.alignment = { vertical: 'middle', horizontal: 'center' };
-        } else if (i <= 4) {
-            cell.alignment = { vertical: 'middle', horizontal: 'left' };
-        }
+      const cell = row.getCell(i);
+      cell.border = { top: { style: 'thin', color: { argb: 'FFCCCCCC' } }, left: { style: 'thin', color: { argb: 'FFCCCCCC' } }, bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } }, right: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
+      if (i === 1 || i === 5) {
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      } else if (i <= 4) {
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      }
     }
 
     tCustomers++;
@@ -526,46 +527,46 @@ const exportCustomerBillingSummary = asyncHandler(async (req, res) => {
 
   const totalsRow = worksheet.getRow(currentRow);
   totalsRow.height = 25;
-  
+
   worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
   const labelCell = totalsRow.getCell(1);
   labelCell.value = `TOTALS | Customers: ${tCustomers}`;
   labelCell.font = { bold: true, color: { argb: 'FF800000' } };
   labelCell.alignment = { vertical: 'middle', horizontal: 'right', indent: 1 };
-  
+
   totalsRow.getCell(5).value = tBills;
   totalsRow.getCell(6).value = tBilling;
   totalsRow.getCell(7).value = tPaid;
   totalsRow.getCell(8).value = tDiscount;
   totalsRow.getCell(9).value = tPending;
-  
+
   for (let i = 1; i <= 9; i++) {
-      const cell = totalsRow.getCell(i);
-      if (i < 5) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
+    const cell = totalsRow.getCell(i);
+    if (i < 5) {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
+    } else {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
+    }
+    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    if (i >= 5 && i <= 9) {
+      cell.font = { bold: true };
+      if (i >= 6) {
+        cell.numFmt = '₹#,##0.00';
+        cell.alignment = { vertical: 'middle', horizontal: 'right' };
       } else {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE4E1' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
       }
-      cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-      if (i >= 5 && i <= 9) {
-          cell.font = { bold: true };
-          if (i >= 6) {
-              cell.numFmt = '₹#,##0.00';
-              cell.alignment = { vertical: 'middle', horizontal: 'right' };
-          } else {
-              cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          }
-      }
+    }
   }
 
   const dateRangeForFile = (startDate && endDate) ? `${startDate}_to_${endDate}` : "All-Dates";
-  
+
   let filename;
   if (customerId && customerId !== "All") {
-      let safeName = custNameForDisplay.replace(/[^a-z0-9]/gi, '-');
-      filename = `${safeName}_Billing-Summary_${dateRangeForFile}.xlsx`;
+    let safeName = custNameForDisplay.replace(/[^a-z0-9]/gi, '-');
+    filename = `${safeName}_Billing-Summary_${dateRangeForFile}.xlsx`;
   } else {
-      filename = `Customer-Billing-Summary_${dateRangeForFile}.xlsx`;
+    filename = `Customer-Billing-Summary_${dateRangeForFile}.xlsx`;
   }
 
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
