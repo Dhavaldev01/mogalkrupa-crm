@@ -10,6 +10,7 @@ export const normalizePhone = (phone) => {
   // Backend stores Indian mobile as 10 digits
   if (cleaned.length === 10) {
     return `91${cleaned}`;
+
   }
 
   // Already contains Indian country code
